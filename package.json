@@ -1,0 +1,52 @@
+{
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/jsdom": "^21.1.7",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/morgan": "^1.9.9",
+    "@types/node": "^22.7.5",
+    "@types/passport": "^1.0.17",
+    "@types/passport-steam": "^1.0.6",
+    "gts": "^6.0.2",
+    "nodemon": "^3.1.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": "20"
+  },
+  "name": "skinfi-api",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node build/index.js",
+    "dev": "nodemon src/index.ts",
+    "lint": "gts lint",
+    "clean": "gts clean",
+    "compile": "tsc",
+    "fix": "gts fix",
+    "prepare": "npm run compile",
+    "pretest": "npm run compile",
+    "posttest": "npm run lint"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@aptos-labs/ts-sdk": "^1.33.2",
+    "@socket.io/mongo-adapter": "^0.3.2",
+    "axios": "^1.7.9",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-validator": "^7.2.1",
+    "jsdom": "^26.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.9.5",
+    "morgan": "^1.10.0",
+    "socket.io": "^4.8.1",
+    "supra-l1-sdk": "^4.0.0",
+    "winston": "^3.17.0"
+  }
+}
