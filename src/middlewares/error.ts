@@ -6,7 +6,7 @@ import { CustomError } from '../models/error';
 export const errorHandler = (error: CustomError, req: Request, res: Response, next: NextFunction) => {
     if (error instanceof CustomError) {
         Logger.warn(error.msg);
-        res.status(400).json(error);
+        res.status(error.code).json(error);
     } else {
         Logger.error(error);
         res.status(500).json(new CustomError('Internal server error', 500));

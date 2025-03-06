@@ -20,7 +20,7 @@ export const verifyRequest = (force: boolean) => (req: Request, res: Response, n
         req.user = { id: decoded.userId, steamId: decoded.steamId };
         next();
     } catch (err) {
-        next(err);
+        next(new CustomError('Unauthorized', 401));
     }
 };
 
