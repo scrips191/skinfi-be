@@ -14,9 +14,9 @@ import { verifyRequest, verifyScheduler, verifyAdmin } from '../middlewares/auth
 const router = Router();
 
 router.use('/auth', authRoutes);
-router.use('/user', verifyRequest(true), userRoutes);
+router.use('/user', verifyRequest(false), userRoutes);
 router.use('/inventory', verifyRequest(true), inventoryRoutes);
-router.use('/listing', listingRoutes);
+router.use('/listing', verifyRequest(true), listingRoutes);
 router.use('/trade', verifyRequest(true), tradeRoutes);
 router.use('/price', verifyScheduler, priceRoutes);
 router.use('/blockchain', verifyScheduler, blockchainRoutes);

@@ -72,6 +72,7 @@ router.get(
             {
                 steamId: user.steamId,
                 userId: user.id,
+                role: user.role,
             },
             process.env.JWT_SECRET as string,
             { expiresIn: '24h' },
@@ -143,6 +144,7 @@ router.get(
             {
                 steamId: user.steamId,
                 userId: user.id,
+                role: user.role,
             },
             process.env.JWT_SECRET as string,
             { expiresIn: '24h' },

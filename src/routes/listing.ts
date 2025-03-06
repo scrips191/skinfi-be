@@ -1,10 +1,9 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import { body, param, query } from 'express-validator';
 import { RootFilterQuery } from 'mongoose';
 
 import socketService from '../services/socket';
 import { asyncHandler } from '../middlewares/error';
-import { verifyRequest } from '../middlewares/auth';
 import { validate } from '../middlewares/validation';
 
 import { CustomError } from '../models/error';
@@ -17,7 +16,6 @@ const router = Router();
 
 router.post(
     '/',
-    verifyRequest(true),
     validate(
         body('itemId').isMongoId(),
         body('price').isInt({ min: 1, max: 1_000_000_000 }),
@@ -128,7 +126,6 @@ router.get(
 
 router.get(
     '/my',
-    verifyRequest(true),
     validate(query('page').isInt({ min: 1 }), query('perPage').isInt({ min: 10, max: 200 })),
     asyncHandler(async (req: AuthRequest, res: Response) => {
         const { page, perPage }: { [x: string]: any } = req.query;
@@ -167,7 +164,6 @@ router.get(
 
 router.delete(
     '/:id',
-    verifyRequest(true),
     validate(param('id').isUUID()),
     asyncHandler(async (req: AuthRequest, res: Response) => {
         const { id } = req.params;

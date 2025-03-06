@@ -79,7 +79,7 @@ router.post(
         const isBuyer = trade.buyer === req.user.id; // buyer/borrower user id
         const isSeller = trade.seller === req.user.id; // seller/lender user id
 
-        if (!isBuyer && !isSeller) throw new CustomError('Unauthorized', 401);
+        if (!isBuyer && !isSeller) throw new CustomError('Invalid trade', 404);
 
         let newListingState: ListingState | undefined;
 

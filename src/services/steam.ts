@@ -9,7 +9,6 @@ const lendableTypes = [
     'Agent',
     'Equipment',
     'Gloves',
-    'Graffiti',
     'Knife',
     'Machinegun',
     'Music Kit',
