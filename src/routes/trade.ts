@@ -334,6 +334,7 @@ router.get(
             id: uuidToBigInt(trade.id).toString(),
             token: token.contract,
             contract: token.chain?.contract,
+            chainId: token.chain?.chainId,
         };
 
         if (forRent) {

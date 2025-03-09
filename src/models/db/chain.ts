@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 
 export interface IChain {
     name: string;
+    chainId: number;
     rpcUrl: string;
     contract: string;
     lastBlockHeight: number;
@@ -13,6 +14,7 @@ export interface IChain {
 const chainSchema = new mongoose.Schema<IChain>(
     {
         name: { type: String, required: true },
+        chainId: { type: Number, required: true },
         rpcUrl: { type: String, required: true },
         contract: { type: String, required: true },
         lastBlockHeight: { type: Number, required: true },
