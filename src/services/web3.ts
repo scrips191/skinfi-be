@@ -75,15 +75,18 @@ class Web3Service {
         const events = txRes?.data?.output?.Move?.events;
         if (!events || !events.length) throw new CustomError('Transaction has no events', 400);
 
+        const [address, module] = config.contract.split('::');
+        const contract = [new HexString(address).toShortString(), module].join('::');
+
         for (const event of events) {
-            if (event.type === `${config.contract}::ClaimEvent`) {
+            if (event.type === `${contract}::ClaimEvent`) {
                 return { deposit: false, data: { ...event.data, id: U128ToUuid(event.data.id) } };
-            } else if (event.type === `${config.contract}::DepositEvent`) {
+            } else if (event.type === `${contract}::DepositEvent`) {
                 return { deposit: true, data: { ...event.data, id: U128ToUuid(event.data.id) } };
             }
         }
 
-        throw new CustomError('"No matching events found', 400);
+        throw new CustomError('No matching events found', 400);
     }
 }
 
