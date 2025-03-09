@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import axios from 'axios';
+import { SocksProxyAgent } from 'socks-proxy-agent';
 import { JSDOM } from 'jsdom';
 
 import { CustomError } from '../models/error';
@@ -25,6 +26,14 @@ class SteamService {
     private openIdUrl = 'https://steamcommunity.com/openid/login';
     private inventoryUrl = 'https://steamcommunity.com/inventory';
     private imageUrl = 'https://community.fastly.steamstatic.com/economy/image';
+    private axiosInstance = axios.create();
+
+    constructor() {
+        if (process.env.PROXY_URL) {
+            const proxyUrl = `socks5://${process.env.PROXY_URL}`;
+            this.axiosInstance = axios.create({ httpsAgent: new SocksProxyAgent(proxyUrl) });
+        }
+    }
 
     async verifyAssertion(params: any): Promise<string> {
         const matches = params['openid.claimed_id'].match(this.steamRegex);
@@ -37,7 +46,7 @@ class SteamService {
             'openid.mode': 'check_authentication',
         });
 
-        const response = await axios.get(`${this.openIdUrl}?${validationParams.toString()}`);
+        const response = await this.axiosInstance.get(`${this.openIdUrl}?${validationParams.toString()}`);
 
         if (!response.data.includes('is_valid:true')) {
             throw new CustomError('Invalid Steam assertion', 400);
@@ -50,7 +59,7 @@ class SteamService {
         const url = `http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${this.apiKey}&steamids=${steamId}`;
 
         try {
-            const response = await axios.get(url);
+            const response = await this.axiosInstance.get(url);
             const player = response.data.response.players[0];
 
             return player
@@ -71,7 +80,7 @@ class SteamService {
         const url = `${this.inventoryUrl}/${steamId}/${appId}/2?l=english&count=5000`;
 
         try {
-            const response = await axios.get(url);
+            const response = await this.axiosInstance.get(url);
             const assets = response.data.assets;
 
             const items = assets.map((asset: any) => {
@@ -128,7 +137,7 @@ class SteamService {
     async fetchSteamLevel(steamId: string) {
         const url = `http://api.steampowered.com/IPlayerService/GetSteamLevel/v1/?key=${this.apiKey}&steamid=${steamId}`;
         try {
-            const response = await axios.get(url);
+            const response = await this.axiosInstance.get(url);
             return response.data.response.player_level;
         } catch (error) {
             return 0;
@@ -138,7 +147,7 @@ class SteamService {
     async validateApiKey(apiKey: string) {
         const url = `https://api.steampowered.com/ISteamWebAPIUtil/GetSupportedAPIList/v1?key=${apiKey}`;
         try {
-            const response = await axios.get(url);
+            const response = await this.axiosInstance.get(url);
             return response.data.apilist.interfaces.length > 0;
         } catch {
             return false;

@@ -46,6 +46,7 @@
     "mongoose": "^8.9.5",
     "morgan": "^1.10.0",
     "socket.io": "^4.8.1",
+    "socks-proxy-agent": "^8.0.5",
     "supra-l1-sdk": "^4.0.0",
     "winston": "^3.17.0"
   }
