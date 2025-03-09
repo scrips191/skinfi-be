@@ -34,6 +34,7 @@ export interface ITrade {
     type: string; // trade type (sell, lend)
     deadline: Date;
     rentClaimable?: boolean;
+    fee?: { amount: number; claimed: boolean };
     weeks?: number;
     state: TradeState;
     depositTx?: string;
@@ -51,6 +52,7 @@ const tradeSchema = new mongoose.Schema<ITrade>(
         type: { type: String, required: true, default: 'sell' },
         deadline: { type: Date, required: true },
         rentClaimable: { type: Boolean, required: false },
+        fee: { type: Object, required: false },
         weeks: { type: Number, required: false },
         state: { type: String, required: true },
         depositTx: { type: String, required: false },

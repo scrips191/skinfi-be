@@ -32,9 +32,11 @@ router.post(
 
         const item = await Item.findOne({ _id: itemId, ownerId: req.user.id }).populate('listed');
         if (!item || item.listed || !item.tradable) throw new CustomError('Item not found', 404);
+        if (!item.price || item.price < 10) throw new CustomError('Not accepted', 400);
 
         let lend = undefined;
         if (type === 'lend') {
+            if (item.price < 50_00) throw new CustomError('Not accepted', 400);
             if (!item.lendable) throw new CustomError('Item not lendable', 400);
             if (!minWeek || !maxWeek || !weeklyPrice) throw new CustomError('Invalid lend data', 400);
             if (minWeek > maxWeek) throw new CustomError('Invalid week range', 400);

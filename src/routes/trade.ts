@@ -15,6 +15,7 @@ import { Listing, ListingState } from '../models/db/listing';
 import { ITrade, Trade, TradeState } from '../models/db/trade';
 import { Token } from '../models/db/token';
 import { AuthRequest } from '../models/auth';
+import { Config } from '../models/db/config';
 
 const router = Router();
 
@@ -33,11 +34,15 @@ router.post(
         if (listing.state !== ListingState.ACTIVE) throw new CustomError('Listing not active', 400);
         if (listing.seller === req.user.id) throw new CustomError('Invalid trade', 400);
 
+        let fee;
         const isLending = listing.type === 'lend';
-
         if (isLending) {
             if (!weeks || weeks < listing.lend.minWeek || weeks > listing.lend.maxWeek)
                 throw new CustomError('Invalid weeks', 400);
+
+            const feeConfig = await Config.findOne({ key: 'rentFee' });
+            const feePercentage = Number(feeConfig?.value) || 10;
+            fee = { amount: Math.floor((listing.lend.weeklyPrice * weeks * feePercentage) / 100), claimed: false };
         }
 
         // check if the seller still has the item
@@ -53,6 +58,7 @@ router.post(
                 type: listing.type,
                 deadline: new Date(Date.now() + 24 * hours),
                 weeks: isLending ? weeks : undefined,
+                fee,
                 state: TradeState.CREATED,
             },
             {
@@ -341,7 +347,10 @@ router.get(
             if (!trade.rentClaimable) throw new CustomError('Invalid trade state', 400);
             if (trade.seller !== req.user.id) throw new CustomError('Invalid user role', 400);
 
-            response.amount = centsToToken(listing.lend.weeklyPrice * trade.weeks!, token.decimals);
+            response.amount = centsToToken(
+                listing.lend.weeklyPrice * trade.weeks! - (trade.fee?.amount || 0),
+                token.decimals,
+            );
             response.signature = web3Service.signClaim('rent', trade.id, response.amount, address);
             res.json(response);
             return;
@@ -495,15 +504,19 @@ router.post(
                     trade.logs?.push({ initiator: 'seller', state: TradeState.SEIZED, createdAt: new Date() });
                     break;
                 case 'rent':
-                    trade.rentClaimable = false;
+                    if (trade.rentClaimable) trade.rentClaimable = false;
+                    else throw new CustomError('Invalid trade state', 400);
+                    break;
+                case 'fee':
+                    if (trade.fee && !trade.fee.claimed) {
+                        trade.fee.claimed = true;
+                    } else throw new CustomError('Invalid trade state', 400);
                     break;
                 default:
                     throw new CustomError('Invalid event type', 400);
             }
-            console.log(trade);
             await trade.save();
         }
-
         res.json(trade);
     }),
 );

@@ -188,6 +188,18 @@ router.post(
                     socketService.emit('trade-updated', trade.toJSON(), trade.seller);
                     break;
                 }
+                case 'fee': {
+                    const trade = await Trade.findOneAndUpdate(
+                        { id: event.id, 'fee.claimed': false },
+                        { 'fee.claimed': true },
+                        { new: true },
+                    );
+                    if (!trade) {
+                        Logger.error('Trade related to claim event not found');
+                        break;
+                    }
+                    break;
+                }
             }
         }
         await config.save();
