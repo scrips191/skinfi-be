@@ -1,9 +1,10 @@
 import mongoose from 'mongoose';
+import { IChain } from './chain';
 
 export interface IToken {
     name: string;
     symbol: string;
-    chainId: string;
+    chain: IChain;
     decimals: number;
     contract: string;
     updatedAt: Date;
@@ -14,7 +15,7 @@ const tokenSchema = new mongoose.Schema<IToken>(
     {
         name: { type: String, required: true },
         symbol: { type: String, required: true },
-        chainId: { type: String, required: true, ref: 'Chain' },
+        chain: { type: String, required: true, ref: 'Chain' },
         decimals: { type: Number, required: true },
         contract: { type: String, required: true },
     },

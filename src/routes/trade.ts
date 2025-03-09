@@ -4,6 +4,8 @@ import mongoose, { RootFilterQuery } from 'mongoose';
 
 import socketService from '../services/socket';
 import web3Service from '../services/web3';
+import { centsToToken } from '../utils/helper';
+import { uuidToBigInt } from '../utils/helper';
 
 import { CustomError } from '../models/error';
 import { asyncHandler } from '../middlewares/error';
@@ -12,9 +14,7 @@ import { Item } from '../models/db/item';
 import { Listing, ListingState } from '../models/db/listing';
 import { ITrade, Trade, TradeState } from '../models/db/trade';
 import { Token } from '../models/db/token';
-import { Chain } from '../models/db/chain';
 import { AuthRequest } from '../models/auth';
-import { uuidToBigInt } from '../utils/helper';
 
 const router = Router();
 
@@ -326,16 +326,21 @@ router.get(
 
         const listing = await Listing.findOne({ id: trade.listingId });
         if (!listing) throw new CustomError('Listing not found', 500);
-        const token = await Token.findOne({ symbol: listing.token });
-        if (!token) throw new CustomError('Token not found', 500);
 
-        const response: any = { id: uuidToBigInt(trade.id).toString(), token: token.contract };
+        const token = await Token.findOne({ symbol: listing.token }).populate('chain');
+        if (!token || !token.chain) throw new CustomError('Token not found', 500);
+
+        const response: any = {
+            id: uuidToBigInt(trade.id).toString(),
+            token: token.contract,
+            contract: token.chain?.contract,
+        };
 
         if (forRent) {
             if (!trade.rentClaimable) throw new CustomError('Invalid trade state', 400);
             if (trade.seller !== req.user.id) throw new CustomError('Invalid user role', 400);
 
-            response.amount = listing.lend.weeklyPrice * trade.weeks!;
+            response.amount = centsToToken(listing.lend.weeklyPrice * trade.weeks!, token.decimals);
             response.signature = web3Service.signClaim('rent', trade.id, response.amount, address);
             res.json(response);
             return;
@@ -347,41 +352,47 @@ router.get(
                 if (listing.state !== ListingState.ACTIVE) throw new CustomError('Invalid listing state', 400);
 
                 if (listing.type === 'lend') {
-                    response.amount = listing.lend.weeklyPrice * trade.weeks! + listing.price;
+                    response.amount = centsToToken(
+                        listing.lend.weeklyPrice * trade.weeks! + listing.price,
+                        token.decimals,
+                    );
                     response.signature = web3Service.signDeposit(trade.id, response.amount, token.contract);
                 } else {
-                    response.amount = listing.price;
-                    response.signature = web3Service.signDeposit(trade.id, listing.price, token.contract);
+                    response.amount = centsToToken(listing.price, token.decimals);
+                    response.signature = web3Service.signDeposit(trade.id, response.amount, token.contract);
                 }
                 break;
             }
             case TradeState.CAN_WITHDRAW:
                 if (trade.buyer !== req.user.id) throw new CustomError('Invalid user role', 400);
                 if (listing.type === 'lend') {
-                    response.amount = listing.lend.weeklyPrice * trade.weeks! + listing.price;
+                    response.amount = centsToToken(
+                        listing.lend.weeklyPrice * trade.weeks! + listing.price,
+                        token.decimals,
+                    );
                     response.signature = web3Service.signClaim('withdraw', trade.id, response.amount, address);
                 } else {
-                    response.amount = listing.price;
-                    response.signature = web3Service.signClaim('withdraw', trade.id, listing.price, address);
+                    response.amount = centsToToken(listing.price, token.decimals);
+                    response.signature = web3Service.signClaim('withdraw', trade.id, response.amount, address);
                 }
                 break;
             case TradeState.CAN_RELEASE:
                 if (trade.seller !== req.user.id) throw new CustomError('Invalid user role', 400);
                 if (listing.type !== 'sell') throw new CustomError('Invalid listing type', 500);
-                response.amount = listing.price;
-                response.signature = web3Service.signClaim('release', trade.id, listing.price, address);
+                response.amount = centsToToken(listing.price, token.decimals);
+                response.signature = web3Service.signClaim('release', trade.id, response.amount, address);
                 break;
             case TradeState.CAN_RECLAIM:
                 if (trade.buyer !== req.user.id) throw new CustomError('Invalid user role', 400);
                 if (listing.type !== 'lend') throw new CustomError('Invalid listing type', 500);
-                response.amount = listing.price;
-                response.signature = web3Service.signClaim('reclaim', trade.id, listing.price, address);
+                response.amount = centsToToken(listing.price, token.decimals);
+                response.signature = web3Service.signClaim('reclaim', trade.id, response.amount, address);
                 break;
             case TradeState.CAN_SEIZE:
                 if (trade.seller !== req.user.id) throw new CustomError('Invalid user role', 400);
                 if (listing.type !== 'lend') throw new CustomError('Invalid listing type', 500);
-                response.amount = listing.price;
-                response.signature = web3Service.signClaim('seize', trade.id, listing.price, address);
+                response.amount = centsToToken(listing.price, token.decimals);
+                response.signature = web3Service.signClaim('seize', trade.id, response.amount, address);
                 break;
             default:
                 throw new CustomError('Invalid trade state', 400);
@@ -398,19 +409,18 @@ router.post(
         const id = req.params.id as string;
         const { txHash } = req.body;
 
-        const chain = await Chain.findOne({ name: 'supra' }).lean();
-        if (!chain) throw new CustomError('Chain not found', 500);
-
-        const event = await web3Service.fetchTransactionEvent(txHash, chain);
-        if (event.data.id !== id) throw new CustomError('Onchain id and provided id do not match', 400);
-
         // TODO: filter returning fields
         let trade = await Trade.findOne({ id, $or: [{ seller: req.user.id }, { buyer: req.user.id }] })
             .populate('buyer')
             .populate('seller')
             .populate('listing');
-
         if (!trade) throw new CustomError('Invalid trade id', 400);
+
+        const token = await Token.findOne({ symbol: trade.listing?.token }).populate('chain');
+        if (!token || !token.chain) throw new CustomError('Token not found', 500);
+
+        const event = await web3Service.fetchTransactionEvent(txHash, token.chain);
+        if (event.data.id !== id) throw new CustomError('Onchain id and provided id do not match', 400);
 
         if (event.deposit) {
             if (trade.state === TradeState.CREATED) {

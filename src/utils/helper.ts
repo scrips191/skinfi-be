@@ -4,3 +4,7 @@ export const U128ToUuid = (id: string) => {
 };
 
 export const uuidToBigInt = (id: string) => BigInt('0x' + id.replaceAll('-', ''));
+
+export const centsToToken = (amount: number, decimals: number) => {
+    return amount * Math.pow(10, decimals - 2);
+};
