@@ -5,6 +5,7 @@ import { JSDOM } from 'jsdom';
 
 import { CustomError } from '../models/error';
 import { ISticker, ICharm } from 'models/db/item';
+import Logger from '../utils/logger';
 
 const lendableTypes = [
     'Agent',
@@ -130,7 +131,8 @@ class SteamService {
 
             return items;
         } catch (error) {
-            throw new CustomError('Failed to fetch user inventory', 500);
+            Logger.error('Failed to fetch inventory', error);
+            return [];
         }
     }
 
