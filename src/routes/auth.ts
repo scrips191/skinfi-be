@@ -8,7 +8,6 @@ import { CustomError } from '../models/error';
 import { asyncHandler } from '../middlewares/error';
 import { User } from '../models/db/user';
 import { Item } from '../models/db/item';
-import { ItemPrice } from '../models/db/item-price';
 import { validate } from '../middlewares/validation';
 
 const router = Router();
@@ -106,18 +105,8 @@ router.get(
                 throw new CustomError('Failed to create user', 500);
             }
 
-            const inventory = await steamService.fetchInventory(steamId as string, 730);
+            const inventory = await inventoryService.getInventory(steamId as string, 730);
             const items = inventory.map((item: any) => ({ ...item, ownerId: newUser.id }));
-            const marketNames = items.map((x: any) => x.marketName);
-
-            const itemPrices = await ItemPrice.find({ marketName: { $in: marketNames } });
-
-            for (const item of items) {
-                const itemPrice = itemPrices.find(x => x.marketName === item.marketName);
-                if (itemPrice) {
-                    item.price = itemPrice.price;
-                }
-            }
 
             await Item.deleteMany({ ownerId: newUser.id });
             await Item.insertMany(items);
