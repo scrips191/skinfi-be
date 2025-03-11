@@ -4,22 +4,9 @@ import { SocksProxyAgent } from 'socks-proxy-agent';
 import { JSDOM } from 'jsdom';
 
 import { CustomError } from '../models/error';
-import { ISticker, ICharm } from 'models/db/item';
+import { ISticker, ICharm } from '../models/db/item';
+import { lendableItemTypes } from '../models/steam';
 import Logger from '../utils/logger';
-
-const lendableTypes = [
-    'Agent',
-    'Equipment',
-    'Gloves',
-    'Knife',
-    'Machinegun',
-    'Music Kit',
-    'Pistol',
-    'Rifle',
-    'SMG',
-    'Shotgun',
-    'Sniper Rifle',
-];
 
 class SteamService {
     private steamRegex = /^https?:\/\/steamcommunity\.com\/openid\/id\/(\d+)$/;
@@ -109,7 +96,7 @@ class SteamService {
                         : splitName[0].split(' (')[0];
 
                 const tradable = description.tradable === 1;
-                const lendable = lendableTypes.includes(type) && tradable;
+                const lendable = lendableItemTypes.includes(type) && tradable;
 
                 return {
                     assetId: asset.assetid,

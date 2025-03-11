@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { query } from 'express-validator';
 
 import steamService from '../services/steam';
+import inventoryService from '../services/inventory';
 import { CustomError } from '../models/error';
 import { asyncHandler } from '../middlewares/error';
 import { User } from '../models/db/user';
@@ -43,18 +44,8 @@ router.get(
                 throw new CustomError('Failed to create user', 500);
             }
 
-            const inventory = await steamService.fetchInventory(steamId, 730);
+            const inventory = await inventoryService.getInventory(steamId, 730);
             const items = inventory.map((item: any) => ({ ...item, ownerId: newUser.id }));
-            const marketNames = items.map((x: any) => x.marketName);
-
-            const itemPrices = await ItemPrice.find({ marketName: { $in: marketNames } });
-
-            for (const item of items) {
-                const itemPrice = itemPrices.find(x => x.marketName === item.marketName);
-                if (itemPrice) {
-                    item.price = itemPrice.price;
-                }
-            }
 
             await Item.deleteMany({ ownerId: newUser.id });
             await Item.insertMany(items);

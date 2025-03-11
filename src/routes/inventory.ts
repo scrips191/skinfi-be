@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { query } from 'express-validator';
 import { RootFilterQuery } from 'mongoose';
 
-import steamService from '../services/steam';
+import inventoryService from '../services/inventory';
 import { asyncHandler } from '../middlewares/error';
 import { validate } from '../middlewares/validation';
 
@@ -11,7 +11,6 @@ import { User } from '../models/db/user';
 import { AuthRequest } from '../models/auth';
 import { CustomError } from '../models/error';
 import { Listing, ListingState } from '../models/db/listing';
-import { ItemPrice } from '../models/db/item-price';
 
 const router = Router();
 
@@ -73,23 +72,13 @@ router.post(
         // Save user with new cooldown
         await user.save();
 
-        const steamInventory = await steamService.fetchInventory(user.steamId, 730);
-        const steamItems = steamInventory.map((item: any) => ({ ...item, ownerId: user.id })).reverse();
-        const assetIds = steamItems.map((x: any) => x.assetId);
-
-        const marketNames = steamItems.map((x: any) => x.marketName);
-        const itemPrices = await ItemPrice.find({ marketName: { $in: marketNames } });
-
-        for (const item of steamItems) {
-            const itemPrice = itemPrices.find(x => x.marketName === item.marketName);
-            if (itemPrice) {
-                item.price = itemPrice.price;
-            }
-        }
+        const inventory = await inventoryService.getInventory(user.steamId, 730);
+        const items = inventory.map((item: any) => ({ ...item, ownerId: user.id }));
+        const assetIds = inventory.map((x: any) => x.assetId);
 
         await Item.deleteMany({ ownerId: user.id, appId: 730, assetId: { $nin: assetIds } });
         await Item.bulkWrite(
-            steamItems.map((item: any) => ({
+            items.map((item: any) => ({
                 updateOne: {
                     filter: { ownerId: user.id, appId: 730, assetId: item.assetId },
                     update: { $set: item },
