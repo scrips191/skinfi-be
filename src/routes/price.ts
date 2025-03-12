@@ -10,13 +10,12 @@ const router = Router();
 router.post(
     '/refresh',
     asyncHandler(async (req: Request, res: Response) => {
-        // TODO: Rate limit this endpoint
         const prices = await priceEmpireService.fetchPrices(730);
-        if (!prices) throw new CustomError('Failed to fetch prices', 500);
+        if (!prices || prices.length === 0) throw new CustomError('Cannot refresh prices', 500);
 
-        // TODO: Update prices instead of deleting all
-        await ItemPrice.deleteMany({ appId: 730 });
+        await ItemPrice.updateMany({ appId: 730 }, { $set: { deleted: true } });
         await ItemPrice.insertMany(prices);
+        await ItemPrice.deleteMany({ deleted: true, appId: 730 });
 
         res.send(`Fetched ${prices.length} prices`);
     }),

@@ -7,27 +7,30 @@ import { lendableItemTypes } from '../models/steam';
 class PriceEmpireService {
     private apiKey = process.env.PRICE_EMPIRE_API_KEY as string;
     private baseUrl = 'https://api.pricempire.com';
-    private priceUrl = 'v4/paid/items/prices';
+    private priceUrl = 'v3/items/prices';
     private inventoryUrl = 'v3/inventory';
     private imageUrl = 'https://community.fastly.steamstatic.com/economy/image';
 
     async fetchPrices(appId: number) {
-        const url = `${this.baseUrl}/${this.priceUrl}?app_id=${appId}&api_key=${this.apiKey}&sources=buff163,steam&currency=USD`;
+        const url = `${this.baseUrl}/${this.priceUrl}?app_id=${appId}&api_key=${this.apiKey}&sources=buff,steam&currency=USD`;
 
         try {
             const response = await axios.get(url);
+            const itemPrices = response.data;
+            const marketNames = Object.keys(itemPrices);
 
-            const prices: IItemPrice[] = response.data.reduce((acc: IItemPrice[], item: any): IItemPrice[] => {
-                const price = item.prices?.[0]?.price || item.prices?.[1]?.price;
+            const prices: IItemPrice[] = [];
+            for (const marketName of marketNames) {
+                const item = itemPrices[marketName];
+                const price: number = item.buff?.price || item.steam?.price || 0;
                 if (price) {
-                    acc.push({
-                        marketName: item.market_hash_name,
+                    prices.push({
                         appId,
+                        marketName,
                         price,
                     });
                 }
-                return acc;
-            }, []);
+            }
 
             return prices;
         } catch (error) {
