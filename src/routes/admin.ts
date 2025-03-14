@@ -91,4 +91,26 @@ router.get(
     }),
 );
 
+// get collectible fees
+router.get(
+    '/fee/list',
+    validate(query('page').isInt({ min: 1 }), query('perPage').isInt({ min: 10, max: 200 })),
+    asyncHandler(async (req: Request, res: Response) => {
+        const { page, perPage }: { [x: string]: any } = req.query;
+
+        const filter: RootFilterQuery<ITrade> = {
+            feeClaimable: true,
+        };
+
+        // TODO: Filter returned fields
+        const trades = await Trade.find(filter, '-_id -__v')
+            .sort({ updatedAt: -1, _id: 1 })
+            .skip((page - 1) * perPage)
+            .limit(perPage)
+            .populate('listing');
+
+        res.json(trades);
+    }),
+);
+
 export default router;
