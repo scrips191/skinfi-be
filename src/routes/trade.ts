@@ -16,6 +16,7 @@ import { ITrade, Trade, TradeState } from '../models/db/trade';
 import { Token } from '../models/db/token';
 import { AuthRequest } from '../models/auth';
 import { Config } from '../models/db/config';
+import { User } from '../models/db/user';
 
 const router = Router();
 
@@ -25,7 +26,7 @@ const returnItemExtension = 24 * hours;
 
 router.post(
     '/',
-    validate(body('listingId').isUUID(), body('weeks').isInt().optional()),
+    validate(body('listingId').isUUID(), body('weeks').isInt({ min: 2 }).optional()),
     asyncHandler(async (req: AuthRequest, res: Response) => {
         const { listingId, weeks } = req.body;
 
@@ -34,15 +35,18 @@ router.post(
         if (listing.state !== ListingState.ACTIVE) throw new CustomError('Listing not active', 400);
         if (listing.seller === req.user.id) throw new CustomError('Invalid trade', 400);
 
-        let fee;
+        let fee, rent;
         const isLending = listing.type === 'lend';
         if (isLending) {
+            if (!listing.lend) throw new CustomError('Invalid listing', 400);
             if (!weeks || weeks < listing.lend.minWeek || weeks > listing.lend.maxWeek)
                 throw new CustomError('Invalid weeks', 400);
 
             const feeConfig = await Config.findOne({ key: 'rentFee' });
-            const feePercentage = Number(feeConfig?.value) || 10;
-            fee = { amount: Math.floor((listing.lend.weeklyPrice * weeks * feePercentage) / 100), claimed: false };
+            const feePercentage = Number(feeConfig?.value) || 0;
+
+            rent = listing.lend.weeklyPrice * weeks;
+            fee = Math.floor((rent * feePercentage) / 100);
         }
 
         // check if the seller still has the item
@@ -58,6 +62,7 @@ router.post(
                 type: listing.type,
                 deadline: new Date(Date.now() + 24 * hours),
                 weeks: isLending ? weeks : undefined,
+                rent,
                 fee,
                 state: TradeState.CREATED,
             },
@@ -163,6 +168,7 @@ router.post(
                         if (action === 'confirm') {
                             trade.state = TradeState.PERIOD_STARTED;
                             trade.rentClaimable = true;
+                            if (trade.fee) trade.feeClaimable = true;
                             trade.deadline = new Date(
                                 Date.now() + (trade.weeks as number) * 7 * 24 * hours + returnItemExtension,
                             );
@@ -317,13 +323,13 @@ router.get(
     validate(
         param('id').isUUID(),
         query('address').isHexadecimal().optional(),
-        query('forRent').isBoolean().optional(),
+        query('type').isIn(['deposit', 'withdraw', 'release', 'reclaim', 'seize', 'rent', 'fee']).optional(),
     ),
     asyncHandler(async (req: AuthRequest, res: Response) => {
         const tradeId = req.params.id;
         // TODO: validate address
         const address = req.query.address as string;
-        const forRent = req.query.forRent === 'true';
+        const type = req.query.type as string;
 
         const trade = await Trade.findOne({ id: tradeId, $or: [{ buyer: req.user.id }, { seller: req.user.id }] });
         if (!trade) throw new CustomError('Invalid trade', 404);
@@ -343,15 +349,25 @@ router.get(
             chainId: token.chain?.chainId,
         };
 
-        if (forRent) {
+        if (type === 'rent') {
+            if (!trade.rent || trade.fee === undefined) throw new CustomError('Invalid trade', 400);
             if (!trade.rentClaimable) throw new CustomError('Invalid trade state', 400);
             if (trade.seller !== req.user.id) throw new CustomError('Invalid user role', 400);
 
-            response.amount = centsToToken(
-                listing.lend.weeklyPrice * trade.weeks! - (trade.fee?.amount || 0),
-                token.decimals,
-            );
+            response.amount = centsToToken(trade.rent - trade.fee, token.decimals);
             response.signature = web3Service.signClaim('rent', trade.id, response.amount, address);
+            res.json(response);
+            return;
+        } else if (type === 'fee') {
+            if (!trade.fee) throw new CustomError('Invalid trade', 400);
+            if (!trade.feeClaimable) throw new CustomError('Invalid trade state', 400);
+
+            // check if the user is admin
+            const user = await User.findById(req.user.id);
+            if (!user || user.role !== 'admin') throw new CustomError('Unauthorized', 403);
+
+            response.amount = centsToToken(trade.fee, token.decimals);
+            response.signature = web3Service.signClaim('fee', trade.id, response.amount, address);
             res.json(response);
             return;
         }
@@ -362,10 +378,8 @@ router.get(
                 if (listing.state !== ListingState.ACTIVE) throw new CustomError('Invalid listing state', 400);
 
                 if (listing.type === 'lend') {
-                    response.amount = centsToToken(
-                        listing.lend.weeklyPrice * trade.weeks! + listing.price,
-                        token.decimals,
-                    );
+                    if (!listing.lend || !trade.rent) throw new CustomError('Invalid listing', 400);
+                    response.amount = centsToToken(trade.rent + listing.price, token.decimals);
                     response.signature = web3Service.signDeposit(trade.id, response.amount, token.contract);
                 } else {
                     response.amount = centsToToken(listing.price, token.decimals);
@@ -376,10 +390,8 @@ router.get(
             case TradeState.CAN_WITHDRAW:
                 if (trade.buyer !== req.user.id) throw new CustomError('Invalid user role', 400);
                 if (listing.type === 'lend') {
-                    response.amount = centsToToken(
-                        listing.lend.weeklyPrice * trade.weeks! + listing.price,
-                        token.decimals,
-                    );
+                    if (!listing.lend || !trade.rent) throw new CustomError('Invalid listing', 400);
+                    response.amount = centsToToken(trade.rent + listing.price, token.decimals);
                     response.signature = web3Service.signClaim('withdraw', trade.id, response.amount, address);
                 } else {
                     response.amount = centsToToken(listing.price, token.decimals);
@@ -508,9 +520,8 @@ router.post(
                     else throw new CustomError('Invalid trade state', 400);
                     break;
                 case 'fee':
-                    if (trade.fee && !trade.fee.claimed) {
-                        trade.fee.claimed = true;
-                    } else throw new CustomError('Invalid trade state', 400);
+                    if (trade.feeClaimable) trade.feeClaimable = false;
+                    else throw new CustomError('Invalid trade state', 400);
                     break;
                 default:
                     throw new CustomError('Invalid event type', 400);

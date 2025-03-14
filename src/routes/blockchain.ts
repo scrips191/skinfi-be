@@ -190,8 +190,8 @@ router.post(
                 }
                 case 'fee': {
                     const trade = await Trade.findOneAndUpdate(
-                        { id: event.id, 'fee.claimed': false },
-                        { 'fee.claimed': true },
+                        { id: event.id, feeClaimable: true },
+                        { feeClaimable: false },
                         { new: true },
                     );
                     if (!trade) {

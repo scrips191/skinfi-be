@@ -19,7 +19,7 @@ export interface IListing {
     percentage: number;
     type: string; // listing type (sell, lend)
     price: number; // item price for selling, collateral price for lending
-    lend: { minWeek: number; maxWeek: number; weeklyPrice: number };
+    lend?: { minWeek: number; maxWeek: number; weeklyPrice: number };
     hidden: boolean;
     state: ListingState;
     item: IItem;
