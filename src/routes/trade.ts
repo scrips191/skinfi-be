@@ -331,9 +331,17 @@ router.get(
         const address = req.query.address as string;
         const type = req.query.type as string;
 
-        const trade = await Trade.findOne({ id: tradeId, $or: [{ buyer: req.user.id }, { seller: req.user.id }] });
-        if (!trade) throw new CustomError('Invalid trade', 404);
+        const filter: RootFilterQuery<ITrade> = { id: tradeId };
+        if (type === 'fee') {
+            // check if the user is admin
+            const user = await User.findById(req.user.id);
+            if (!user || user.role !== 'admin') throw new CustomError('Unauthorized', 403);
+        } else {
+            filter.$or = [{ buyer: req.user.id }, { seller: req.user.id }];
+        }
 
+        const trade = await Trade.findOne(filter);
+        if (!trade) throw new CustomError('Invalid trade', 404);
         if (trade.state !== TradeState.CREATED && !address) throw new CustomError('Address is required', 400);
 
         const listing = await Listing.findOne({ id: trade.listingId });
@@ -361,10 +369,6 @@ router.get(
         } else if (type === 'fee') {
             if (!trade.fee) throw new CustomError('Invalid trade', 400);
             if (!trade.feeClaimable) throw new CustomError('Invalid trade state', 400);
-
-            // check if the user is admin
-            const user = await User.findById(req.user.id);
-            if (!user || user.role !== 'admin') throw new CustomError('Unauthorized', 403);
 
             response.amount = centsToToken(trade.fee, token.decimals);
             response.signature = web3Service.signClaim('fee', trade.id, response.amount, address);
@@ -431,11 +435,7 @@ router.post(
         const id = req.params.id as string;
         const { txHash } = req.body;
 
-        // TODO: filter returning fields
-        let trade = await Trade.findOne({ id, $or: [{ seller: req.user.id }, { buyer: req.user.id }] })
-            .populate('buyer')
-            .populate('seller')
-            .populate('listing');
+        let trade = await Trade.findOne({ id }).populate('buyer').populate('seller').populate('listing');
         if (!trade) throw new CustomError('Invalid trade id', 400);
 
         const token = await Token.findOne({ symbol: trade.listing?.token }).populate('chain');
