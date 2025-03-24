@@ -144,7 +144,7 @@ class SteamService {
     }
 
     validateTradeUrl(url: string) {
-        const urlRegex = /^https:\/\/steamcommunity\.com\/tradeoffer\/new\/\?partner=\d+&token=[a-zA-Z0-9]+$/;
+        const urlRegex = /^https:\/\/steamcommunity\.com\/tradeoffer\/new\/\?partner=\d+&token=[a-zA-Z0-9-]+$/;
         return !!url.match(urlRegex);
     }
 
