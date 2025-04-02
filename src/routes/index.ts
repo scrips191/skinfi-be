@@ -15,11 +15,11 @@ const router = Router();
 
 router.use('/auth', authRoutes);
 router.use('/user', verifyRequest(false), userRoutes);
-router.use('/inventory', verifyRequest(true), inventoryRoutes);
-router.use('/listing', verifyRequest(true), listingRoutes);
-router.use('/trade', verifyRequest(true), tradeRoutes);
+router.use('/inventory', verifyRequest(false), inventoryRoutes);
+router.use('/listing', verifyRequest(false), listingRoutes);
+router.use('/trade', verifyRequest(false), tradeRoutes);
 router.use('/price', verifyScheduler, priceRoutes);
 router.use('/blockchain', verifyScheduler, blockchainRoutes);
-router.use('/admin', verifyRequest(true), verifyAdmin, adminRoutes);
+router.use('/admin', verifyRequest(false), verifyAdmin, adminRoutes);
 
 export default router;
